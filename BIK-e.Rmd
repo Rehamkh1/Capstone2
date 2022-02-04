@@ -1,0 +1,481 @@
+---
+title: "Bike Sharing"
+author: "REHAM ALSHEHRI"
+date: "2/5/2022"
+output: 
+  pdf_document: 
+    toc: yes
+    fig_caption: yes
+    number_sections: yes
+---
+
+```{r setup, include=FALSE}
+library(tigerstats)
+library(knitr)
+library(tidyverse)
+library(tidymodels)
+opts_chunk$set(echo = FALSE)
+```
+
+#install.packages("corrplot") 
+#library(randomForest)
+#if (!require("libraryname")) install.packages("libraryname")
+```{r Web Scraping}
+#install.packages("data.table")
+#library(data.table)
+#library(XML)
+
+#urls <- rbindlist(lapply(function(x){
+#  url <- paste ("https://www.kaggle.com/yasserh/bike-sharing-dataset?select=day.csv")
+ # data.frame(url)
+#}),fill=TRUE)
+
+#Bilocations <- rbindlist (apply(urls , 1, function(url) {
+#  doc <- htmlParse(url)
+#  locations <- getNodeSet(doc,'//*[@id="site-content"]/div[3]/div[2]/div[3]/div[2]/div/div[2]/div/div[3]/div[7]/span[22]')
+#  data.frame (sapply(locations ,function(x) { xmlValue(x)}))
+#}),fill=TRUE)
+```
+
+
+
+# INTRODUCTION
+
+Bike sharing services are a new version of conventional bike rentals in which the whole procedure from registration to renting and returning has been automated. Consumers may sign up to become subscribers of these platforms or simply use services on a temporary contract, which allows individuals to grab up the bike place at a single point and leave it off at many sites across cities. Such platform is transforming the way people utilize public transit, particularly in and around major metropolitan areas. Enterprises are in competition with other modes of transportation. Understanding the quantity of utilization from each station throughout the city is incredibly significant in demonstrating development trends of the service, particularly when compared to other, more conventional forms of transportation.
+
+The goal of this case study is to investigate and develop a linear regression model in order to forecast bike sharing consumption using the weather information from the dataset. The work will undertake exploratory investigation, data analysis, data modelling, conclusion and limitation of the work on Hadi Fanaee Tork's Bike Sharing Demand data set, which was compiled utilizing data provided by Capital Bikeshare. Bike sharing services are a kind of bike hire in which the procedure of getting a subscription, borrowing a bike, and returning it is computerized via the use of a system of kiosks stations located around a metropolis. The services let individuals to hire a bike from a single place and deposit it to another on an as-needed base. There are already over 500 bike-sharing schemes worldwide.
+
+
+
+```{r data-import}
+library(readxl)
+Bik <- read_excel("C:/Users/bader/Desktop/Bik/Bik.xlsx")
+View(Bik)
+
+```
+
+
+# Data Analysis 
+
+section that explains the process and techniques used, including data cleaning, data exploration and data visualization. For this purpose various types of the methods and approaches are considered to perform the data analysis. 
+
+```{r}
+str(Bik)
+```
+
+## Data Exploration
+There are total '16' columns in the data set and their deatils are given below with their description. 
+
+Original column names: Description
+  instant: record index
+  dteday : date
+  season : season (1:springer, 2:summer, 3:fall, 4:winter)
+  yr : year (0: 2011, 1:2012)
+  mnth : month ( 1 to 12)
+  hr : hour (0 to 23)
+  holiday : whether day is holiday or not (extracted from [Web Link])
+  weekday : day of the week
+  workingday : if day is neither weekend nor holiday is 1, otherwise is 0.
+  weathersit : 
+    1: Clear, Few clouds, Partly cloudy, Partly cloudy
+    2: Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist
+    3: Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds
+    4: Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog
+  temp : Normalized temperature in Celsius.
+  atemp: Normalized feeling temperature in Celsius.
+  hum: Normalized humidity. The values are divided to 100 (max)
+  windspeed: Normalized wind speed. The values are divided to 67 (max)
+  casual: count of casual users
+  registered: count of registered users
+  cnt: count of total rental bikes including both casual and registered
+
+## Data Cleaning
+
+Data cleaning is a very important process and some of the irrelevant variables from the dataset are removed for more accurate results.For this purpose, 6 variables (instant, dteday, yr, weathersit, atemp,casual,registered) and new dataset is created on the basis of remaining variables. 
+
+
+
+```{r data-wrangling}
+#colnames(Bik)
+#  [1] "instant"    "dteday"     "season"     "yr"         "mnth"       "holiday"   
+#  [7] "weekday"    "workingday" "weathersit" "temp"       "atemp"      "hum"       
+# [13] "windspeed"  "casual"     "registered" "cnt"  
+
+Bik_v2 <- Bik %>%
+  dplyr::select(-instant, 
+         -dteday, 
+         -yr, 
+         -weathersit, 
+         -atemp,
+         -casual, 
+         -registered)
+
+  # mutate(sunday = ifelse(weekday == 0, 1, 0))
+
+Bik_v2$season <- as.factor(Bik_v2$season)
+Bik_v2$mnth <- as.factor(Bik_v2$mnth)
+Bik_v2$holiday <- as.factor(Bik_v2$holiday)
+Bik_v2$weekday <- as.factor(Bik_v2$weekday)
+Bik_v2$workingday <- as.factor(Bik_v2$workingday)
+
+#automatic download of the wrangled dataset
+write_csv(Bik_v2, "data_wrangled_kaggle_bikes_dataset.csv")
+
+```
+
+
+##Data Visualization
+
+Data visulization is very helpful process to find the useful insights from it. To fulfil this need, boxplots and barcahrts are plotted for the various types of the varibales.
+
+
+### Weekdays
+
+The rental numbers for each weekdays are being displayed here using the boxplot. We can see that there are various types of the outliers in the dataset. For each weekday, the rental numbers are shown here. 
+
+```{r plots}
+
+ggplot(Bik_v2, 
+       aes(x = as.factor(weekday), 
+           y = cnt,
+           color = as.factor(weekday))) +
+  geom_point() +
+  geom_boxplot() + 
+  labs(
+    title = "Number of Rentals by Weekday",
+    x = "Day of the Week",
+    y = "Number of Rentals",
+    color = "Day of the Week",
+    caption = "Based on BoomBikes 2018 Kaggle data https://www.kaggle.com/yasserh/bike-sharing-dataset"
+  ) +
+  theme_classic() + 
+  scale_color_discrete(name = "Day of the Week", 
+                       labels = c("Sunday", "Monday","Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) + 
+  scale_color_brewer(palette = "Set1") + 
+  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
+
+```
+
+### Season
+
+There are total 4 seasons in the dataset and their total count is calculated here. Findings shows that season 3 has highest number of the count bikes as compared to others. 
+
+```{r}
+ggplot(Bik_v2, aes(x = season, y = cnt, group = season)) + geom_boxplot() 
+
+```
+
+### Month
+
+The monthly count for the bikes is also computed and output showsh the counting for each month. 
+
+```{r}
+ggplot(Bik_v2, aes(x = mnth, y = cnt, group = mnth)) + geom_boxplot()
+
+```
+
+### Holiday
+
+The holiday counting is also calculated and shows that on holidays the count for each days. 
+
+```{r}
+ggplot(Bik_v2, aes(x = holiday, y = cnt, group = holiday)) + geom_boxplot()
+
+```
+
+### Week day
+
+The counting of the bikes for each weekday is presented here using the boxplot. The output is displaying the number for each day. 
+
+```{r}
+ggplot(Bik_v2, aes(x = weekday, y = cnt, group = weekday)) + geom_boxplot()
+```
+
+### Workingday
+
+The count numbers on working is high as compared to the no working days. 
+
+```{r}
+ggplot(Bik_v2, aes(x = workingday, y = cnt, group = workingday)) + geom_boxplot()
+
+```
+
+### Hum (Humidity)
+
+The regression line between humidity and count is drawled using the ggplot. The output shows their relationship. They are uncorrelated. 
+
+
+```{r}
+ggplot(Bik_v2, aes(x = hum, y = cnt)) + 
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "black")
+```
+
+
+### Wrind Speed
+
+The realtionship between windspeed and count is determined using the regresssion line that can be scene form the the below output. These are not related to each other. 
+
+```{r}
+ggplot(Bik_v2, aes(x = windspeed, y = cnt)) + 
+  geom_point(color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, color = "black")
+```
+
+### Temp (Temperature)
+
+The regression line for thr temperature and cout is presented below and it is showing that the is linear and increasing. 
+
+```{r}
+ggplot(Bik_v2, aes(x = temp, y = cnt)) + 
+  geom_point(color = "darkgreen") + 
+  geom_smooth(method = "lm", se = FALSE, color = "black")
+  
+```
+
+
+```{r}
+#cor_matrix <- cor(Bik_v2)
+#corrplot(cor_matrix, order = "hclust", tl.col = "black", tl.srt = 45, addCoef.col = 'black', method = "square")
+
+```
+
+# Data splits for traning and tesing
+The bike share dataset is divide for training and testing with the 75/25 ratio for training and testing respectively. 
+ 
+
+```{r data-split}
+#begin with splitting the dataset into training and test datasets using initial_split() https://rsample.tidymodels.org/reference/initial_split.html
+
+set.seed(28)
+bi_split <- initial_split(Bik_v2, 
+                          prop = 0.75, #The proportion of data to be retained for modeling/analysis
+                          strata = cnt) #Numeric strata are binned into quartiles
+
+bi_split
+
+bi_train <- training(bi_split)
+bi_train
+
+bi_test <- testing(bi_split)
+bi_test
+                          
+```
+## Feature Engineering
+It is a process from which we pick only the influential variables from the dataset to build a better predictive modeling. Due to this issue, this step is performed here. The target varibale in the dataset is 'cnt' and all other varibales are features in the dataset. 
+
+
+
+```{r feature-engineering}
+
+bi_rec <- recipe(cnt ~ temp + hum + windspeed, data = bi_train) %>%
+  step_corr(temp, hum, windspeed, threshold = 0.9) %>% #see correlation plot above
+  #step_dummy(season, mnth, holiday, weekday, workingday) %>% #dummy encoding on categorical variables
+  prep() #estimate the required parameters to be applied to other datasets
+
+bi_test <- bi_rec %>%
+  bake(testing(bi_split)) #apply trained preprocessing recipe
+
+bi_train <- juice(bi_rec) #extract transformed training set
+
+```
+
+```{r}
+bi_rec
+```
+
+```{r}
+summary(bi_rec)
+
+```
+
+```{r}
+bi_test
+```
+
+```{r}
+bi_train
+
+```
+
+# Results
+
+In this section, linear regression model is applied on the dataset using the influential variables from the dataset. The performance of the model is determined on the testing dataset by using the training dataset.There are total three models are builds using the temp, hum and windspread. We assess the performance of the environmental features only on the bike counting and finds the best model for the problem. The p[performance is assessed using the 3 types of the regression models that are given below:
+
+## Model Training
+
+Here we trained the above three regression models on the dataset and their results for training are shown below as an evidence. 
+
+```{r modelling}
+
+#initialize the model
+lm_model <- linear_reg() %>% #functionality of algorithm is imported here, parameters might be specified here 
+  set_engine('lm') %>%  #algorithm itself, links to package that the algorithms
+  set_mode('regression') #mode ex. classification, regression, xgboost, etc. 
+
+
+lm_fit_temp1 <- lm_model %>% 
+  fit(cnt ~ temp,
+      data = bi_train)
+
+
+lm_fit_temp2 <- lm_model %>%
+  fit(cnt ~ temp + windspeed, #plus sign for another variable, : sign for interactions 
+      data = bi_train)
+
+
+lm_fit_temp3 <- lm_model %>%
+  fit(cnt ~ temp + windspeed + hum, #plus sign for another variable, : sign for interactions 
+      data = bi_train)
+
+```
+
+```{r}
+glance(lm_fit_temp1)
+glance(lm_fit_temp2)
+glance(lm_fit_temp3)
+
+```
+
+The same models are implemented here as well using the tidymodels and findings are shown below: 
+
+```{r}
+#this is an alternative to using tidymodels
+lm(cnt ~ temp, data = bi_train)
+summary(lm(cnt ~ temp, data = bi_train))
+
+tidy(lm_fit_temp1)
+tidy(lm_fit_temp2)
+tidy(lm_fit_temp3)
+
+
+```
+
+
+### Model Testing
+
+Here, the linear regression models are trained on the 75% of the dataset and now their performance is assessed using the testing dataset. The testing scores for 3 linear regression models are shown below. 
+
+```{r predict}
+bi_pred <- predict(lm_fit_temp1, bi_test) #creates a numerical vector
+bi_pred2 <- predict(lm_fit_temp2, bi_test) 
+bi_pred3 <- predict(lm_fit_temp3, bi_test) 
+
+results <- bi_test %>%
+  bind_cols(bi_pred) %>% #can not use mutate with a vector
+  mutate(residuals = cnt - .pred) #can also use residuals() on an lm() object
+
+results2 <- bi_test %>%
+  bind_cols(bi_pred2) %>% #can not use mutate with a vector
+  mutate(residuals = cnt - .pred) #can also use residuals() on an lm() object
+
+results3 <- bi_test %>%
+  bind_cols(bi_pred3) %>% #can not use mutate with a vector
+  mutate(residuals = cnt - .pred) #can also use residuals() on an lm() object
+
+head(results2)
+```
+
+### Model Evaluation using Residuals metric
+
+The residual is indeed a metric of just how far vertically apart a point would be from the linear interpolation. It indicates variance that the model does not explain. It is the difference between a forecaster and actual values. These plots are being utilized to examine the residuals for underlying patterns that may indicate that the linear regression model has an issue.
+
+```{r residuals}
+
+p <- ggplot(results3, aes(x = temp, y = cnt)) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +  # regression line 
+  geom_segment(aes(xend = temp, yend = .pred), alpha = .2) + #creates gray lines
+  geom_point(aes(color = abs(residuals), size = abs(residuals))) +  # size of the points
+  scale_color_continuous(low = "green", high = "red") +             # colour of the points mapped to residual size - green smaller, red larger
+  guides(color = FALSE, size = FALSE) +     # Size legend removed
+  geom_point(aes(y = .pred), shape = 1) + #added points with clear center 
+  theme_bw() +
+  labs(
+    x = "Temperature", 
+    y = "Number of Rentals",
+    title = "Residuals Plot",
+  )
+
+p
+
+ggplot(results, aes(x = residuals)) + geom_histogram() #check distribution of residuals, should be normally distributed
+```
+
+### Model Evaluation using RMSE
+
+The Root Mean Square Error (RMSE) is a measure of the residuals' standard deviation (prediction errors). The term "residuals" refers to the distance between the data points on the regression line and the term "RMSE" refers to the expansion of such residuals. On the other hands, it indicates the degree to which the data is packed it around best fit line. The RMSE error is often used to validate experimental findings in meteorology, prediction, and linear regression. The lower value of the RMSE on the test dataset shows that model is fitting very well on the dataset. 
+
+The model 3 which is consist of the temp+windspread+hum has the lowest RMSE score as compared to other 2 models on the test. The comparison of the models is showing below:
+```{r}
+results %>% rmse(truth = cnt, estimate = .pred)
+
+#calculate by hand using rmse <- sqrt(mean(residuals^2)), residuals = predicted value - actual value
+
+bi_rmse <- data.frame(model = c("temp only", "temp + windspeed", "temp + windspeed + hum"), 
+                      rmse = c(1513, 1482, 1412)) 
+
+ggplot(bi_rmse, aes(x = model, y = rmse, color = model)) + 
+  geom_point(size=3) + 
+  geom_segment(aes(x=model, 
+                   xend=model, 
+                   y=0, 
+                   yend=rmse)) +
+  coord_flip() + 
+  scale_color_brewer(palette = "Dark2") +
+  labs(color = "Model",
+       y = "RMSE",
+       x = "Model Evaluated",
+       title = "Root Mean Square Error (RMSE) Plot")
+
+```
+  
+
+### Model Evaluation using R-squared  
+
+R-squared is the amount of variation (percentage) in the dependent variable that the independent variable can explain. As a result, as a general rule, evaluate the strength of a link in terms of its R-squared value.
+
+(a) R-squared value 0.3 is regarded to be a None or Very Weak impact size.
+(b) To-squared value of 0.5 r 0.7 is typically regarded as a Moderate effect size.
+(c) R-squared value greater than 0.7 is regarded to have a large impact size.
+
+To illustrate the projected vs. real counts (in this example), it is a good practise to plot the predicted vs. actual counts.
+The performance of the model
+
+-- patterns that are not linear
+-- areas in which the model performs badly
+
+The more variation the regression model accounts for, the closest the data points lie to the linear regression line. In theory, if a model can account for 100% of the variance, then estimated coefficients will always match the observed data, and so all measured values will be on the fitted on line of regression.
+
+The R squared plots and estimates value for the model are shown below and findings shows that the estimates values are very low as compared to the others. 
+
+```{r rsq}
+results %>% rsq(truth = cnt, estimate = .pred) #rsquared - temperature explains 38% of the variation within the data, used adjusted for multiple variables
+
+ggplot(results, aes(x = cnt, y = .pred)) + 
+  geom_point() +
+  geom_abline(color = 'blue', linetype = 2) + #reference line
+  labs(title = 'R-Squared Plot',
+       y = 'Predicted Counts', 
+       x = 'Actual Counts')
+
+ggplot(results3, aes(x = cnt, y = .pred)) + 
+  geom_point() +
+  geom_abline(color = 'blue', linetype = 2) + #reference line
+  labs(title = 'R-Squared Plot',
+       y = 'Predicted Counts', 
+       x = 'Actual Counts')
+
+```
+
+# Conlusion
+In this case study the bike share dataset in analyzed using the various steps to find the impact of the weather effects variables from the dataset to predict the 'cnt' variables. Various types of the steps are considered here like data cleaning, data exploration and data visualization to find the hidden insights from the dataset. The various types of the box plots are plotted using the target variables. The data visualization is very helpful to find the hidden facts from the dataset and determined the bike rental counting for each day, month and year. The findings shows that the feature engineering is also performed on the dataset to find the hidden insights from it. Three linear regression models are builds to predict 'cnt' variables using the 75/25 ratio for training and testing the models on ht dataset. The evaluation of the models is assessed using the residual error, RMSE and R-square. The plots are also plotted. The findings shows that the the tmp+windspread+hum variables achieved the lowest RMSE score as compared to the other two. So, these three variables are very helpful to build a better predictive model using the weather types variables as compared to other two regression models. 
+
+## Limitations
+
+In this analysis, we only utilized the weather related variables to predict the rental count for the bikes from very huge amount of the variables. Furthermore, the linear regression modeling is considered here to build the predictive model that is also one of the limited approach. 
+
+## Future Work
+
+For future work various types of the other features can also accommodate to forecast the rental bike count for this dataset with more diverse way for better results, These variables can be location, customer - occupation, income and area. Moreover, the various types of the other machine learning models can be used here like Random Forest,Gradient boosted tree, Neural network and Support vector machines. 
+
+
